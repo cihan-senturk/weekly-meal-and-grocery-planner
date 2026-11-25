@@ -16,7 +16,7 @@ const APP_FILES = [
   'js/app.js', 'js/dates.js', 'js/export.js', 'js/firebase-config.js', 'js/i18n.js', 'js/nutrition.js',
   'js/qr.js', 'js/shopping.js', 'js/storage.js', 'js/sync.js', 'js/sync-firebase.js',
   'locales/tr.json',
-  'data/catalog.json',
+  'data/catalog.json', 'data/products.json',
   'fonts/sofia-sans.woff', 'fonts/sofia-sans-italic.woff', 'fonts/sofia-sans-condensed.woff', 'fonts/sofia-sans-condensed-italic.woff',
   'icons/favicon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png',
 ];

@@ -15,6 +15,8 @@ I had AI do everything in this project. In fact, aside from these specific sente
 
 **Ücretsiz haftalık yemek planlayıcı ve otomatik alışveriş listesi.** Kayıt yok, üyelik yok, reklam yok. Haftalık menünüzü seçin; market listesi kendiliğinden çıksın. Bilgisayarda planlayın, telefonla markete gidin.
 
+İki sekmeden oluşur: **Yemek** sekmesinde haftanın menüsünü planlarsınız, **Alışveriş** sekmesi ise menüdeki malzemelerle markette alacağınız diğer her şeyi tek listede toplar.
+
 ### Neler yapabilirsiniz?
 
 - **Menüden alışveriş listesine, tek adımda.** Yemekleri seçin; malzemeler kişi sayısına göre hesaplanıp reyonlara göre gruplanır.
@@ -24,7 +26,8 @@ I had AI do everything in this project. In fact, aside from these specific sente
 - **Mevsiminde yemekler.** Kasımda hamsi ve pırasa, temmuzda patlıcan öne çıkar.
 - **Dengeli bir hafta için öneriler.** Balık, baklagil ve sebze önerileri; haftanız uydukça tik alır.
 - **Kişi başı kalori ve makrolar.** Her gün için yaklaşık kalori, protein, karbonhidrat ve yağ.
-- **Markette kolaylık.** Alınanları işaretleyin, gizleyin; adetli ürünlerde yaklaşık ağırlık görün.
+- **Tek market listesi.** Deterjandan kuruyemişe 1000'i aşkın ürün arasından ekleyin; menünün malzemeleri de aynı listeye kendiliğinden gelir.
+- **Markette kolaylık.** Satıra dokunup alındı işaretleyin; liste açıkken ekran kararmaz. "Alışveriş tamamlandı" deyince liste tarihiyle geçmişe kaydedilir.
 - **İnternetsiz çalışır.** Market içinde çekmese bile menü ve liste açılır.
 - **Kolay paylaşım ve düzenleme.** Listeyi WhatsApp'a gönderin; yemekleri sürükleyip taşıyın, "Geri al" ile geri getirin.
 - **Gizlilik.** Reklam ve takip yok. Menünüz tarayıcınızda kalır; eşleme açılırsa eşlenen cihazlarla paylaşılır.
@@ -35,24 +38,38 @@ I had AI do everything in this project. In fact, aside from these specific sente
 
 1. [Uygulamayı açın](https://cihan-senturk.github.io/weekly-meal-and-grocery-planner/) ve kişi sayısını girin.
 2. Haftanın günlerine yemek ekleyin (çorba, ana yemek, yanında, salata, tatlı).
-3. Sağdaki alışveriş listesi kendiliğinden oluşur; evde olmayan temel malzemeleri işaretleyin.
+3. **Alışveriş** sekmesine geçin: menünün malzemeleri hazır; markette alacağınız diğer şeyleri de ekleyin.
 4. Telefonla kullanmak için üstteki cihaz simgesine basın ve çıkan QR kodunu telefonunuzla okutun.
 
-*Anahtar kelimeler: haftalık menü, haftalık yemek listesi, haftalık yemek planı, yemek planlayıcı, menü planlayıcı, alışveriş listesi, market listesi, ücretsiz, kayıt gerektirmez, yazdırılabilir şablon, boş haftalık menü şablonu, aile yemek planı.*
+İpucu: Sekme adının yanındaki 📌 ile uygulamanın hangi sekmeden açılacağını seçebilirsiniz.
+
+### Kimler için?
+
+- **Tek yaşayanlar:** Haftalık planla israfı ve "bugün ne pişirsem?" derdini azaltın.
+- **Aileler:** Menüyü birlikte planlayın, listeyi eşleyin; markete kim giderse aynı listeyi görür.
+- **Diyetisyenler:** Danışanlara yaklaşık kalori ve makrolarıyla örnek haftalık menü hazırlayıp çıktısını verin.
+- **Toplu yemek yapılan yerler:** Yurt, kreş, pansiyon, şantiye ya da kamp mutfağı; 200 kişiye kadar miktarları otomatik hesaplayın.
+
+*Anahtar kelimeler: haftalık menü, haftalık yemek listesi, haftalık yemek planı, yemek planlayıcı, menü planlayıcı, alışveriş listesi, market listesi, ücretsiz, kayıt gerektirmez, yazdırılabilir şablon, boş haftalık menü şablonu, aile yemek planı, market alışveriş listesi, toplu yemek menüsü, diyet menüsü.*
 
 ## English
 
 **A free weekly meal planner with an automatic grocery list.** No sign-up, no account, no ads. Pick the week's dinners and the shopping list builds itself. Plan on your computer, shop with your phone. (The interface is in Turkish and the dishes are from Turkish home cooking.)
+
+Two tabs: **Meals** for planning the week, **Shopping** for one grocery list that holds both the menu's ingredients and everything else you buy.
 
 - **From meal plan to grocery list automatically**: ingredients are scaled to the number of people and grouped by supermarket aisle.
 - **Free, no sign-up**: works in the browser; add it to your home screen to use it like an app.
 - **Sync between devices and people**: pair a computer and a phone with a QR code, or share the code with family.
 - **Printable blank template**: print the week as A4; empty slots print as lines to fill in by hand.
 - **Seasonal by month**, **balanced-week tips** and **approximate calories and macros per person**.
+- **One shopping list**: add from 1,000+ everyday products; the menu's ingredients join the same list automatically.
+- **Shopping history**: mark a trip as done to save the list with its date and reuse it later.
 - **Shopping mode**, **works offline**, **share as text or image**.
+- **Who is it for?** People living alone, families sharing one list, dietitians preparing sample weekly menus, and any kitchen cooking for a group (dorms, nurseries, guesthouses, work sites; up to 200 people).
 - **Private**: no ads, no tracking. Your plan stays in your browser unless you turn on device sync.
 
-*Keywords: free meal planner, weekly meal plan template, weekly menu planner, grocery list, shopping list generator, no sign-up, printable meal planner, family meal planning.*
+*Keywords: free meal planner, weekly meal plan template, weekly menu planner, grocery list, shopping list generator, no sign-up, printable meal planner, family meal planning, meal planner for dietitians, group cooking menu.*
 
 ## Teknolojiler / Technologies
 

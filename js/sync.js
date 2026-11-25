@@ -14,9 +14,9 @@
 //   remove(code) → Promise
 
 export const SYNC_KEY = 'ne-pisirsem:sync';
-const SHARED = ['days', 'shopping', 'settings'];
+const SHARED = ['days', 'shopping', 'settings', 'groceries'];
 // How deep a change is tracked: a whole day, one key of a week's bought/pantry/extras map, one setting.
-const DEPTH = { days: 1, shopping: 3, settings: 1 };
+const DEPTH = { days: 1, shopping: 3, settings: 1, groceries: 2 };
 const CODE_LENGTH = 22;
 
 export function newCode() {
@@ -44,6 +44,7 @@ export function pairingLink(code, location = window.location) {
 export function sharedPart(state) {
   const part = {};
   for (const key of SHARED) part[key] = state?.[key] ?? {};
+  part.groceries = { items: {}, ...part.groceries };
   return JSON.parse(JSON.stringify(part));
 }
 

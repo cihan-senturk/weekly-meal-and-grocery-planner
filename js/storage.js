@@ -10,6 +10,7 @@ export function createEmptyState() {
     settings: { servings: 4, includeOptional: false },
     days: {},          // { "2026-11-24": { eatingOut: false, slots: { main: { dishId, leftoverFrom } } } }
     shopping: {},      // { "2026-11-23": { bought: { ingredientId: true }, pantryNeeded: { ingredientId: true } } } keyed by week start
+    groceries: { items: {} }, // Alışveriş tab: { items: { productId: { qty, bought, at } } }
   };
 }
 

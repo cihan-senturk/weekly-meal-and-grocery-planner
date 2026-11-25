@@ -7,11 +7,20 @@
   <title>Haftalık Yemek ve Alışveriş Listesi</title>
   <meta name="description" content="Haftalık menü planlayıcı ve otomatik alışveriş listesi">
   <meta name="theme-color" content="#ffffff">
+  <meta name="color-scheme" content="light dark">
+  <script>
+    // Theme before first paint (no flash): the saved choice, else the system setting.
+    try {
+      var theme = localStorage.getItem('ne-pisirsem:theme');
+      if (theme !== 'light' && theme !== 'dark') theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.dataset.theme = theme;
+    } catch (e) { document.documentElement.dataset.theme = 'light'; }
+  </script>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <meta name="apple-mobile-web-app-title" content="Yemek Listesi">
+  <meta name="apple-mobile-web-app-title" content="Yemek &amp; Alışveriş">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta property="og:type" content="website">
@@ -32,8 +41,32 @@
     <span class="blob blob-4"></span><span class="blob blob-5"></span>
   </div>
   <div class="page">
+    <div class="app-tabs-row">
+      <nav class="app-tabs" role="tablist" data-i18n-label="tabs.label">
+        <button class="app-tab" role="tab" id="tab-meals" type="button" data-tab="meals" aria-controls="view-meals" aria-selected="true" data-i18n="tabs.meals">Yemek</button>
+        <button class="tab-pin" type="button" data-pin="meals"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3.5h6l-1 6 3.5 3.5v1.5h-11V13L10 9.5z"/><path d="M12 14.5v6"/></svg></button>
+        <button class="app-tab" role="tab" id="tab-shopping" type="button" data-tab="shopping" aria-controls="view-shopping" aria-selected="false" tabindex="-1" data-i18n="tabs.shopping">Alışveriş</button>
+        <button class="tab-pin" type="button" data-pin="shopping"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3.5h6l-1 6 3.5 3.5v1.5h-11V13L10 9.5z"/><path d="M12 14.5v6"/></svg></button>
+        <span class="app-tab-indicator" aria-hidden="true"></span>
+      </nav>
+      <div class="app-tools">
+          <button class="sync-button" id="sync-button" type="button" data-status="off" hidden>
+          <span class="sync-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="3" y="5" width="12" height="9" rx="1.5"/><path d="M1.5 17.5h15"/><rect x="17" y="9" width="5.5" height="10" rx="1.2"/></svg>
+            <span class="sync-dot"></span>
+          </span>
+          <span class="sync-label" data-i18n="sync.labelOff"></span>
+        </button>
+      <button class="icon-button theme-toggle" id="theme-toggle" type="button" aria-pressed="false">
+        <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>
+      </button>
+      </div>
+    </div>
+
+    <div class="view" id="view-meals" role="tabpanel" aria-labelledby="tab-meals">
     <header class="topbar">
-      <span class="brand"><span class="brand-full" data-i18n="app.title">Haftalık Yemek ve Alışveriş Listesi</span><span class="brand-short" data-i18n="app.shortTitle" aria-hidden="true">Yemek Listesi</span></span>
+      <span class="brand"><span class="brand-full" data-i18n="app.title">Haftalık Yemek ve Alışveriş Listesi</span><span class="brand-short" data-i18n="app.shortTitle" aria-hidden="true">Yemek &amp; Alışveriş</span></span>
 
       <nav class="week-nav" aria-label="Hafta">
         <button class="icon-button" id="prev-week" type="button" data-i18n-label="week.previous">
@@ -59,13 +92,6 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg>
           </button>
         </div>
-        <button class="sync-button" id="sync-button" type="button" data-status="off" hidden>
-          <span class="sync-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><rect x="3" y="5" width="12" height="9" rx="1.5"/><path d="M1.5 17.5h15"/><rect x="17" y="9" width="5.5" height="10" rx="1.2"/></svg>
-            <span class="sync-dot"></span>
-          </span>
-          <span class="sync-label" data-i18n="sync.labelOff"></span>
-        </button>
         <button class="icon-button" id="export-button" type="button" data-i18n-label="export.open">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
         </button>
@@ -119,6 +145,23 @@
         <div id="shopping-body"></div>
       </aside>
     </main>
+    </div>
+
+    <section class="view view-shopping" id="view-shopping" role="tabpanel" aria-labelledby="tab-shopping" hidden>
+      <div class="receipt groceries" id="groceries" aria-labelledby="groceries-title">
+        <div id="groceries-head"></div>
+        <div class="list-add">
+          <label class="list-add-field">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg>
+            <span class="visually-hidden" data-i18n="groceries.addLabel"></span>
+            <input type="search" id="grocery-add-input" autocomplete="off" data-i18n-placeholder="groceries.addPlaceholder">
+          </label>
+          <ul class="list-add-results" id="grocery-add-results" hidden></ul>
+        </div>
+        <div class="grocery-quick" id="grocery-quick" hidden></div>
+        <div id="groceries-body"></div>
+      </div>
+    </section>
   </div>
 
   <dialog class="picker" id="picker" aria-labelledby="picker-title">
@@ -170,6 +213,18 @@
         </button>
       </header>
       <div id="sync-body"></div>
+    </div>
+  </dialog>
+
+  <dialog class="grocery-history" id="grocery-history" aria-labelledby="grocery-history-title">
+    <div class="sync-inner">
+      <header class="picker-head">
+        <h2 id="grocery-history-title" data-i18n="groceries.historyTitle"></h2>
+        <button class="icon-button" type="button" id="grocery-history-close" data-i18n-label="picker.close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </header>
+      <div id="grocery-history-body"></div>
     </div>
   </dialog>
 

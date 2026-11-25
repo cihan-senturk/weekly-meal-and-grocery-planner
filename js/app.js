@@ -458,6 +458,7 @@ function renderShopping() {
   $('#shopping-head').innerHTML = `
     <header class="receipt-head">
       <h2 id="list-title">${escapeHtml(t('list.title'))}</h2>
+      <button class="to-groceries" type="button" data-action="open-groceries">${escapeHtml(t('list.openGroceries'))}</button>
       ${buyItems.length ? `<button class="icon-button ghost" type="button" data-action="copy-list" aria-label="${escapeHtml(shareLabel)}" title="${escapeHtml(shareLabel)}">${share ? ICONS.share : ICONS.copy}</button>` : ''}
     </header>
     ${buyItems.length ? renderProgress(boughtCount, buyItems.length, hideBought) : ''}`;
@@ -1083,6 +1084,11 @@ async function handleShoppingEvent(event) {
   if (!target) return;
   const { action, id } = target.dataset;
   const checks = shoppingChecks();
+  if (action === 'open-groceries' && event.type === 'click') {
+    showTab('shopping');
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    return;
+  }
   if (action === 'toggle-bought' && event.type === 'change') {
     if (target.checked) checks.bought[id] = true;
     else delete checks.bought[id];
@@ -1316,6 +1322,813 @@ function applyStaticTranslations() {
   document.title = t('app.title');
 }
 
+// ---------- Alışveriş tab: a plain shopping list from the product catalog ----------
+// Same habits as the meal list: search to add, grouped by aisle (alphabetical), tick to buy (bought items
+// sink), − / + or a typed amount, undo, share as text. Only catalog products can be added.
+// state.groceries = { items: { id: { qty, bought, at } }, recent: [id…], history: { hid: { at, items: { id: { qty, bought, menu? } } } },
+//                     settled: { weekKey: { ingredientId: true } } }
+//
+// The week's menu feeds the list live: each ingredient of the meal tab's "Liste" (the week open there) maps to a
+// product and shows up as a row part marked "menü", with the menu's own amount. Ticking a row ticks both lists.
+// A row = one product: an optional hand-added part (items[id]) plus any menu parts.
+
+const GROCERY_STEP = { kg: 0.5 };
+const GROCERY_DECIMAL = new Set(['kg', 'lt']); // units that can be typed with a fraction
+const GROCERY_MAX = 999;
+const GROCERY_RECENT = 12;
+const GROCERY_QUICK = 8;
+const GROCERY_HISTORY = 30;
+const G_ICONS = {
+  done: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  history: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3 4v4.5h4.5"/><path d="M12 7.5V12l3 2"/></svg>',
+  chevron: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg>',
+};
+
+function groceryState() {
+  const g = (app.state.groceries ??= {});
+  g.items ??= {};
+  g.recent ??= [];
+  g.history ??= {};
+  g.settled ??= {};
+  return g;
+}
+
+function groceries() {
+  return groceryState().items;
+}
+
+async function loadProducts() {
+  try {
+    const response = await fetch('data/products.json');
+    if (!response.ok) throw new Error(response.statusText);
+    const data = await response.json();
+    app.products = data;
+    app.productsById = new Map(data.products.map((p) => [p.id, p]));
+    app.productKeys = data.products.map((p) => ({ product: p, key: searchKey(p.name), alias: searchKey(p.alias ?? '') }));
+    app.aisleNames = new Map(data.aisles.map((a) => [a.id, a.name]));
+  } catch {
+    $('#groceries-body').innerHTML = `<p class="receipt-empty">${escapeHtml(t('groceries.loadError'))}</p>`;
+    return;
+  }
+  renderGroceries();
+}
+
+function groceryStep(unit) {
+  return GROCERY_STEP[unit] ?? 1;
+}
+
+function groceryAmount(qty, unit) {
+  return `${formatNumber(qty, 1)} ${unit}`;
+}
+
+function byName(a, b) {
+  return a.name.localeCompare(b.name, getLocale());
+}
+
+// ---------- the menu's part of the list ----------
+
+function menuFeedOn() {
+  return app.state.settings.groceriesFromMenu !== false;
+}
+
+/** The meal tab's list for the week open there, as { productId: [menu parts] }. Settled (bought and already
+ *  checked out with "Alışveriş tamamlandı") parts are left out; anything un-ticked again comes back. */
+function menuParts() {
+  const parts = new Map();
+  if (!app.catalog || !app.products?.fromIngredient) return { parts, total: 0 };
+  const checks = shoppingChecks();
+  const settled = groceryState().settled[weekKey()] ?? {};
+  const entries = itemsToBuy(currentShoppingList(), checks);
+  for (const entry of entries) {
+    const ingredientId = entry.ingredient.id;
+    const productId = app.products.fromIngredient[ingredientId];
+    if (!app.productsById.has(productId)) continue;
+    const bought = Boolean(checks.bought[ingredientId]);
+    if (bought && settled[ingredientId]) continue;
+    const list = parts.get(productId) ?? [];
+    list.push({ entry, ingredientId, bought, amount: entry.quantity > 0 ? formatAmount(entry.quantity, entry.ingredient.unit) : '' });
+    parts.set(productId, list);
+  }
+  return { parts, total: entries.length };
+}
+
+/** Every row on the list: hand-added items merged with the menu's parts for the same product. */
+function groceryRows() {
+  const items = groceries();
+  const { parts } = menuFeedOn() ? menuParts() : { parts: new Map() };
+  const ids = new Set([...Object.keys(items), ...parts.keys()]);
+  const rows = [];
+  for (const id of ids) {
+    const product = app.productsById.get(id);
+    if (!product) continue;
+    const manual = items[id] ?? null;
+    const menu = parts.get(id) ?? [];
+    const bought = (!manual || Boolean(manual.bought)) && menu.every((m) => m.bought);
+    rows.push({ id, product, manual, menu, bought });
+  }
+  return rows;
+}
+
+function rowAmount(row) {
+  const pieces = row.menu.map((m) => m.amount).filter(Boolean);
+  if (row.manual) pieces.push(groceryAmount(row.manual.qty, row.product.unit));
+  return pieces.join(' + ');
+}
+
+/** Like rowAmount, but a part already bought (on a row that still needs something) is struck through. */
+function rowAmountHtml(row) {
+  const pieces = row.menu.filter((m) => m.amount).map((m) => ({ text: m.amount, done: m.bought && !row.bought }));
+  if (row.manual) pieces.push({ text: groceryAmount(row.manual.qty, row.product.unit), done: Boolean(row.manual.bought) && !row.bought });
+  // each amount stays on one line; a long pair may break only at the "+"
+  return pieces.map((p) => `<span class="amt">${p.done ? `<s>${escapeHtml(p.text)}</s>` : escapeHtml(p.text)}</span>`).join(' + ');
+}
+
+function setRowBought(row, bought) {
+  if (row.manual) row.manual.bought = bought;
+  const checks = shoppingChecks();
+  for (const m of row.menu) {
+    if (bought) checks.bought[m.ingredientId] = true;
+    else delete checks.bought[m.ingredientId];
+  }
+}
+
+function isPastWeek() {
+  return addDays(app.weekStart, 7) <= startOfWeek(new Date());
+}
+
+// ---------- rendering ----------
+
+function renderGroceries() {
+  if (!app.products) return;
+  const g = groceryState();
+  const rows = groceryRows();
+  app.groceryRowsById = new Map(rows.map((r) => [r.id, r]));
+  const boughtCount = rows.filter((r) => r.bought).length;
+  const hideBought = Boolean(app.state.settings.hideBoughtGroceries) && boughtCount > 0;
+  const share = canShare();
+  const shareLabel = t(share ? 'list.share' : 'list.copy');
+  const hasHistory = Object.keys(g.history).length > 0;
+  const menuCount = rows.filter((r) => r.menu.length).length;
+  const feedOn = menuFeedOn();
+  const plannedDishes = app.catalog ? currentShoppingList().dishCount : 0;
+
+  // "Menüden: 24–30 Kasım · 14 ürün" — a switch, shown once the week has dishes (or while it is switched off)
+  const notThisWeek = toIsoDate(app.weekStart) !== toIsoDate(startOfWeek(new Date()));
+  const feed = plannedDishes || !feedOn || notThisWeek ? `
+    <button class="menu-feed" type="button" data-g="feed" aria-pressed="${feedOn}">
+      <span class="menu-feed-switch" aria-hidden="true"></span>
+      <span>${escapeHtml(t('groceries.fromMenu', { week: $('#week-title')?.textContent ?? '' }))}${feedOn
+        ? ` · ${escapeHtml(t('groceries.fromMenuCount', { count: menuCount }))}` : ''}${feedOn && isPastWeek()
+        ? ` · <em>${escapeHtml(t('groceries.pastWeek'))}</em>` : ''}</span>
+    </button>` : '';
+  const backToWeek = notThisWeek && feedOn
+    ? `<button class="feed-this-week" type="button" data-g="this-week">${escapeHtml(t('groceries.thisWeek'))}</button>` : '';
+
+  $('#groceries-head').innerHTML = `
+    <header class="receipt-head">
+      <h2 id="groceries-title">${escapeHtml(t('groceries.title'))}</h2>
+      ${rows.length ? `<button class="icon-button ghost" type="button" data-g="share" aria-label="${escapeHtml(shareLabel)}" title="${escapeHtml(shareLabel)}">${share ? ICONS.share : ICONS.copy}</button>` : ''}
+    </header>
+    ${rows.length || hasHistory ? `
+    <div class="grocery-actions">
+      ${rows.length ? `<button class="grocery-done" type="button" data-g="complete">${G_ICONS.done}<span>${escapeHtml(t('groceries.complete'))}</span></button>` : ''}
+      ${hasHistory ? `<button class="grocery-history-open" type="button" data-g="history">${G_ICONS.history}<span>${escapeHtml(t('groceries.history'))}</span></button>` : ''}
+    </div>` : ''}
+    ${feed || backToWeek ? `<div class="menu-feed-row">${feed}${backToWeek}</div>` : ''}
+    ${rows.length ? `
+    <div class="receipt-progress">
+      <span class="progress-text">${escapeHtml(t('list.progress', { bought: boughtCount, total: rows.length }))}</span>
+      ${boughtCount ? `<button class="progress-toggle" type="button" data-g="hide" aria-pressed="${hideBought}">${escapeHtml(t(hideBought ? 'list.showBought' : 'list.hideBought'))}</button>` : ''}
+      <span class="progress-bar" aria-hidden="true"><span style="width: ${(boughtCount / rows.length) * 100}%"></span></span>
+    </div>` : ''}`;
+
+  renderGroceryQuick();
+  updateWakeLock();
+  if ($('#grocery-history').open) renderGroceryHistory();
+
+  if (!rows.length) {
+    $('#groceries-body').innerHTML = `<p class="receipt-empty">${escapeHtml(t('groceries.empty'))}</p>`;
+    return;
+  }
+  const groups = app.products.aisles
+    .map((aisle) => ({ aisle, all: rows.filter((r) => r.product.aisle === aisle.id) }))
+    .filter((group) => group.all.length)
+    .map(({ aisle, all }) => {
+      const collapsed = app.collapsedAisles.has(aisle.id);
+      const left = all.filter((r) => !r.bought).length;
+      const shown = all.filter((r) => !(hideBought && r.bought))
+        .sort((a, b) => Number(a.bought) - Number(b.bought) || byName(a.product, b.product));
+      if (!shown.length) return '';
+      return `
+      <section class="aisle${collapsed ? ' is-collapsed' : ''}">
+        <h3><button type="button" class="aisle-toggle" data-g="aisle" data-id="${escapeHtml(aisle.id)}" aria-expanded="${!collapsed}">
+          ${G_ICONS.chevron}<span>${escapeHtml(aisle.name)}</span>
+          ${collapsed ? `<span class="aisle-count">${escapeHtml(left ? t('groceries.aisleLeft', { count: left }) : t('groceries.aisleDone'))}</span>` : ''}
+        </button></h3>
+        ${collapsed ? '' : `<ul>${shown.map(renderGroceryItem).join('')}</ul>`}
+      </section>`;
+    })
+    .join('');
+  const hasManualBought = rows.some((r) => r.manual?.bought);
+  const clear = hasManualBought ? `<button class="grocery-clear" type="button" data-g="clear-bought">${escapeHtml(t('groceries.clearBought'))}</button>` : '';
+  const allDone = hideBought && boughtCount === rows.length ? `<p class="receipt-done">${escapeHtml(t('list.allBought'))}</p>` : '';
+  $('#groceries-body').innerHTML = `${allDone}${groups}${clear}`;
+  app.justAddedGrocery = null;
+  app.flashGroceries = null;
+}
+
+/** The row itself ticks the item; the amount on the right opens the details (dishes, − / +, typed amount). */
+function renderGroceryItem(row) {
+  const { id, product, manual, menu, bought } = row;
+  const open = app.openGrocery === id;
+  const safeId = escapeHtml(id);
+  const amount = rowAmount(row);
+  const dishes = [...new Set(menu.flatMap((m) => m.entry.dishIds))].map((dishId) => localized(app.dishesById.get(dishId)?.name)).filter(Boolean);
+  let details = '';
+  if (open) {
+    const forDishes = menu.length
+      ? `<p class="item-for g-for">${escapeHtml(dishes.length ? t('groceries.forDishes', { dishes: dishes.join(' · ') }) : t('groceries.fromMealList'))}</p>` : '';
+    let controls;
+    if (manual) {
+      const step = groceryStep(product.unit);
+      controls = `
+        <div class="item-extra g-extra">
+          ${menu.length ? `<span class="extra-label">${escapeHtml(t('groceries.extraPart'))}</span>` : ''}
+          <button class="icon-button ghost small" type="button" data-g="less" data-id="${safeId}" aria-label="${escapeHtml(t('groceries.less'))}"
+            ${manual.qty <= step ? 'disabled' : ''}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"/></svg></button>
+          <label class="g-qty">
+            <input type="text" inputmode="${GROCERY_DECIMAL.has(product.unit) ? 'decimal' : 'numeric'}" data-g="qty" data-id="${safeId}"
+              value="${escapeHtml(formatNumber(manual.qty, 1))}" aria-label="${escapeHtml(t('groceries.qtyLabel', { name: product.name }))}">
+            <span>${escapeHtml(product.unit)}</span>
+          </label>
+          <button class="icon-button ghost small" type="button" data-g="more" data-id="${safeId}" aria-label="${escapeHtml(t('groceries.more'))}"
+            ${manual.qty >= GROCERY_MAX ? 'disabled' : ''}>${ICONS.plus}</button>
+          <button class="extra-remove" type="button" data-g="remove" data-id="${safeId}">${escapeHtml(t(menu.length ? 'groceries.removeExtra' : 'groceries.remove'))}</button>
+        </div>`;
+    } else {
+      controls = `
+        <div class="item-extra g-extra">
+          <button class="extra-remove" type="button" data-g="add-extra" data-id="${safeId}">${escapeHtml(t('groceries.addExtra'))}</button>
+        </div>`;
+    }
+    details = forDishes + controls;
+  }
+  const menuMark = menu.length ? `<span class="g-menu-mark">${escapeHtml(t('groceries.menuMark'))}</span>` : '';
+  return `
+    <li class="item g-item${bought ? ' is-bought' : ''}${open ? ' is-open' : ''}${app.justAddedGrocery === id ? ' is-new' : ''}${app.flashGroceries?.has(id) ? ' is-flash' : ''}">
+      <label class="g-row">
+        <input type="checkbox" data-g="toggle" data-id="${safeId}" ${bought ? 'checked' : ''}>
+        <span class="item-name">${escapeHtml(product.name)}</span>${menuMark}
+        <span class="visually-hidden">${escapeHtml(t('list.bought', { name: product.name }))}</span>
+      </label>
+      <button class="g-amount${amount ? '' : ' is-empty'}" type="button" data-g="details" data-id="${safeId}" aria-expanded="${open}"
+        aria-label="${escapeHtml(t('groceries.editAmount', { name: product.name, amount: amount || t('groceries.menuMark') }))}">${amount ? rowAmountHtml(row) : '···'}</button>${details}
+    </li>`;
+}
+
+/** Under the search field: recently added products not on the list now; on a first visit, everyday basics. */
+function renderGroceryQuick() {
+  const box = $('#grocery-quick');
+  const g = groceryState();
+  const onList = app.groceryRowsById ?? new Map();
+  const searching = $('#grocery-add-input').value.trim() !== '';
+  const fromRecent = g.recent.length > 0;
+  const ids = (fromRecent ? g.recent : app.products.suggested ?? [])
+    .filter((id) => app.productsById.has(id) && !onList.has(id))
+    .slice(0, GROCERY_QUICK);
+  box.hidden = searching || !ids.length;
+  if (box.hidden) {
+    box.innerHTML = '';
+    return;
+  }
+  box.innerHTML = `
+    <span class="grocery-quick-label">${escapeHtml(t(fromRecent ? 'groceries.recent' : 'groceries.suggested'))}</span>
+    <div class="grocery-quick-chips">${ids.map((id) => `
+      <button type="button" class="tag g-chip" data-g="quick" data-id="${escapeHtml(id)}">${ICONS.plus}<span>${escapeHtml(app.productsById.get(id).name)}</span></button>`).join('')}
+    </div>`;
+}
+
+function addGrocery(id, { toast = true } = {}) {
+  const product = app.productsById?.get(id);
+  if (!product) return;
+  const g = groceryState();
+  const step = groceryStep(product.unit);
+  const existing = g.items[id];
+  const inMenu = Boolean(app.groceryRowsById?.get(id)?.menu.length);
+  g.items[id] = existing
+    ? { ...existing, qty: Math.min(GROCERY_MAX, roundQty(existing.qty + step, product.unit)), bought: false }
+    : { qty: step, bought: false, at: Date.now() };
+  g.recent = [id, ...g.recent.filter((r) => r !== id)].slice(0, GROCERY_RECENT);
+  app.justAddedGrocery = id;
+  persist();
+  renderGroceries();
+  if (toast) {
+    let message;
+    if (existing) message = t('groceries.increased', { name: product.name, amount: groceryAmount(g.items[id].qty, product.unit) });
+    else if (inMenu) message = t('groceries.addedAlsoMenu', { name: product.name });
+    else message = t('groceries.added', { name: product.name });
+    showToast(message);
+  }
+}
+
+function roundQty(value, unit) {
+  return GROCERY_DECIMAL.has(unit) ? Math.round(value * 10) / 10 : Math.round(value);
+}
+
+function setGroceryQty(id, text) {
+  const product = app.productsById.get(id);
+  const item = groceries()[id];
+  if (!product || !item) return;
+  const value = roundQty(Number(String(text).replace(',', '.')), product.unit);
+  if (Number.isFinite(value) && value > 0) item.qty = Math.min(GROCERY_MAX, value);
+  persist();
+  renderGroceries();
+}
+
+function renderGroceryResults() {
+  const input = $('#grocery-add-input');
+  const results = $('#grocery-add-results');
+  const query = searchKey(input.value.trim());
+  if (app.products) renderGroceryQuick();
+  if (!query || !app.productKeys) {
+    results.hidden = true;
+    results.innerHTML = '';
+    return;
+  }
+  const onList = app.groceryRowsById ?? new Map();
+  // exact name (or a search alias), then "name …", then the name starts with it, then a word in it does, then anywhere;
+  // shorter (more generic) names first
+  const wordStart = (text) => text.startsWith(query) || text.includes(` ${query}`) || text.includes(`(${query}`);
+  const rank = ({ key, alias }) => {
+    if (key === query || alias.split(' ').includes(query)) return 0;
+    if (key.startsWith(`${query} `)) return 1;
+    if (key.startsWith(query)) return 2;
+    if (wordStart(key) || wordStart(alias)) return 3;
+    return 4;
+  };
+  const matches = app.productKeys
+    .filter(({ key, alias }) => key.includes(query) || alias.includes(query))
+    .sort((a, b) => rank(a) - rank(b) || a.key.length - b.key.length || byName(a.product, b.product))
+    .slice(0, MAX_ADD_RESULTS);
+  results.hidden = false;
+  results.innerHTML = matches.length
+    ? matches.map(({ product }) => {
+      const row = onList.get(product.id);
+      return `
+        <li><button type="button" class="add-result" data-product="${escapeHtml(product.id)}">
+          <span>${escapeHtml(product.name)}</span>
+          <span class="add-result-aisle">${escapeHtml(row
+            ? t('groceries.inList', { amount: rowAmount(row) || t('groceries.menuMark') })
+            : app.aisleNames.get(product.aisle) ?? '')}</span>
+        </button></li>`;
+    }).join('')
+    : `<li class="add-empty">${escapeHtml(t('groceries.addEmpty'))}</li>`;
+}
+
+function chooseGrocery(id) {
+  addGrocery(id);
+  $('#grocery-add-input').value = '';
+  renderGroceryResults();
+  $('#grocery-add-input').focus();
+}
+
+function groceriesAsText() {
+  const rows = groceryRows();
+  const lines = [`🛒 ${t('groceries.shareTitle')}`];
+  for (const aisle of app.products.aisles) {
+    const entries = rows.filter((r) => r.product.aisle === aisle.id && !r.bought).sort((a, b) => byName(a.product, b.product));
+    if (!entries.length) continue;
+    lines.push('', `*${aisle.name}*`);
+    for (const r of entries) {
+      const amount = rowAmount(r);
+      lines.push(amount ? `• ${r.product.name} — ${amount}` : `• ${r.product.name}`);
+    }
+  }
+  return lines.join('\n');
+}
+
+// ---------- finished shopping trips ----------
+
+/** Saves the whole list (with what was and was not bought) under today's date and empties it. Menu parts that
+ *  were bought are marked settled for that week; menu parts not bought stay, because the menu still needs them. */
+function completeGroceries() {
+  const rows = groceryRows();
+  if (!rows.length) return;
+  const week = weekKey();
+  withUndo(t('groceries.completed'), () => {
+    const state = groceryState();
+    const id = `h${Date.now().toString(36)}`;
+    const items = {};
+    for (const row of rows) {
+      // a row counts as bought if any part of it was; the saved amount is what was actually bought
+      const manualBought = Boolean(row.manual?.bought);
+      const menuBought = row.menu.filter((m) => m.bought);
+      const bought = manualBought || menuBought.length > 0;
+      const menuShown = bought ? menuBought : row.menu;
+      const saved = { qty: row.manual && (manualBought || !bought) ? row.manual.qty : 0, bought };
+      if (menuShown.length) saved.menu = menuShown.map((m) => m.amount).filter(Boolean).join(' + ') || t('groceries.menuMark');
+      items[row.id] = saved;
+    }
+    state.history[id] = { at: Date.now(), items };
+    const ids = Object.keys(state.history).sort((a, b) => state.history[b].at - state.history[a].at);
+    for (const old of ids.slice(GROCERY_HISTORY)) delete state.history[old];
+    const settled = (state.settled[week] ??= {});
+    for (const row of rows) for (const m of row.menu) if (m.bought) settled[m.ingredientId] = true;
+    // only the last few weeks are worth remembering
+    for (const key of Object.keys(state.settled).sort().slice(0, -8)) delete state.settled[key];
+    state.items = {};
+    app.openGrocery = null;
+  });
+}
+
+function historyDate(at) {
+  return new Date(at).toLocaleString(getLocale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function tripAmount(item, product) {
+  const pieces = [];
+  if (item.menu) pieces.push(item.menu);
+  if (item.qty > 0) pieces.push(groceryAmount(item.qty, product.unit));
+  return pieces.join(' + ');
+}
+
+function renderGroceryHistory() {
+  const history = groceryState().history;
+  const trips = Object.entries(history).sort(([, a], [, b]) => b.at - a.at);
+  const body = $('#grocery-history-body');
+  if (!trips.length) {
+    body.innerHTML = `<p class="history-empty">${escapeHtml(t('groceries.historyEmpty'))}</p>`;
+    return;
+  }
+  body.innerHTML = trips.map(([hid, trip]) => {
+    const lines = Object.entries(trip.items ?? {})
+      .map(([id, item]) => ({ item, product: app.productsById.get(id) }))
+      .filter((e) => e.product)
+      .sort((a, b) => Number(!a.item.bought) - Number(!b.item.bought) || byName(a.product, b.product));
+    const bought = lines.filter((e) => e.item.bought).length;
+    const open = app.openTrip === hid;
+    return `
+      <details class="trip" data-trip="${escapeHtml(hid)}"${open ? ' open' : ''}>
+        <summary>
+          <span class="trip-date">${escapeHtml(historyDate(trip.at))}</span>
+          <span class="trip-count">${escapeHtml(t('groceries.tripCount', { bought, total: lines.length }))}</span>
+        </summary>
+        <ul class="trip-items">${lines.map((e) => `
+          <li class="${e.item.bought ? '' : 'is-missed'}"><span>${escapeHtml(e.product.name)}${e.item.menu ? ` <small>${escapeHtml(t('groceries.menuMark'))}</small>` : ''}</span>
+            <span>${escapeHtml(e.item.bought ? tripAmount(e.item, e.product) : t('groceries.notBought'))}</span></li>`).join('')}
+        </ul>
+        <div class="trip-actions">
+          <button class="button" type="button" data-g="trip-readd" data-id="${escapeHtml(hid)}">${ICONS.plus}<span>${escapeHtml(t('groceries.readd'))}</span></button>
+          <button class="extra-remove" type="button" data-g="trip-delete" data-id="${escapeHtml(hid)}">${escapeHtml(t('groceries.tripDelete'))}</button>
+        </div>
+      </details>`;
+  }).join('');
+}
+
+function openGroceryHistory() {
+  app.openTrip = null;
+  renderGroceryHistory();
+  const dialog = $('#grocery-history');
+  if (!dialog.open) dialog.showModal();
+}
+
+/** Puts a past trip's products back on the list as hand-added items (an amount already there is kept if larger).
+ *  Menu-only products come back with one step, since a menu amount ("600 g") is not a product amount. */
+function readdTrip(hid) {
+  const trip = groceryState().history[hid];
+  if (!trip) return;
+  const entries = Object.entries(trip.items ?? {}).filter(([id]) => app.productsById.has(id));
+  $('#grocery-history').close();
+  withUndo(t('groceries.readded', { count: entries.length }), () => {
+    const g = groceryState();
+    for (const [id, item] of entries) {
+      const qty = item.qty > 0 ? item.qty : groceryStep(app.productsById.get(id).unit);
+      const current = g.items[id];
+      g.items[id] = current
+        ? { ...current, qty: Math.max(current.qty, qty), bought: false }
+        : { qty, bought: false, at: Date.now() };
+    }
+  });
+}
+
+// ---------- keep the screen on while shopping ----------
+
+async function updateWakeLock() {
+  const want = document.body.dataset.tab === 'shopping' && document.visibilityState === 'visible'
+    && (app.groceryRowsById?.size ?? 0) > 0;
+  if (want && !app.wakeLock && 'wakeLock' in navigator) {
+    try {
+      app.wakeLock = await navigator.wakeLock.request('screen');
+      app.wakeLock.addEventListener('release', () => { app.wakeLock = null; });
+    } catch { app.wakeLock = null; /* refused (battery saver, unsupported frame) */ }
+  } else if (!want && app.wakeLock) {
+    const lock = app.wakeLock;
+    app.wakeLock = null;
+    lock.release().catch(() => {});
+  }
+}
+
+async function handleGroceryAction(event) {
+  const target = event.target.closest('[data-g]');
+  if (!target) return;
+  const action = target.dataset.g;
+  if (action === 'toggle' || action === 'qty') {
+    if (event.type !== 'change') return;
+  } else if (event.type !== 'click') {
+    return;
+  }
+  const id = target.dataset.id;
+  const items = groceries();
+  const product = app.productsById?.get(id);
+  if (action === 'toggle') {
+    const row = groceryRows().find((r) => r.id === id);
+    if (!row) return;
+    setRowBought(row, target.checked);
+    persist();
+    renderShopping();
+    withListTransition(renderGroceries);
+  } else if (action === 'this-week') {
+    changeWeek(0);
+  } else if (action === 'add-extra') {
+    addGrocery(id);
+  } else if (action === 'feed') {
+    app.state.settings.groceriesFromMenu = !menuFeedOn();
+    persist();
+    renderGroceries();
+  } else if (action === 'details') {
+    app.openGrocery = app.openGrocery === id ? null : id;
+    renderGroceries();
+    if (app.openGrocery) $(`#groceries [data-g="qty"][data-id="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
+  } else if (action === 'qty') {
+    setGroceryQty(id, target.value);
+  } else if ((action === 'more' || action === 'less') && items[id] && product) {
+    const step = groceryStep(product.unit);
+    const next = roundQty(items[id].qty + (action === 'more' ? step : -step), product.unit);
+    items[id].qty = Math.min(GROCERY_MAX, Math.max(step, next));
+    persist();
+    renderGroceries();
+  } else if (action === 'remove' && product) {
+    app.openGrocery = null;
+    withUndo(t('groceries.removed', { name: product.name }), () => { delete groceries()[id]; });
+  } else if (action === 'clear-bought') {
+    const bought = Object.keys(items).filter((key) => items[key].bought);
+    withUndo(t('groceries.clearedBought', { count: bought.length }), () => {
+      for (const key of bought) delete groceries()[key];
+    });
+  } else if (action === 'hide') {
+    app.state.settings.hideBoughtGroceries = !app.state.settings.hideBoughtGroceries;
+    persist();
+    withListTransition(renderGroceries);
+  } else if (action === 'aisle') {
+    if (app.collapsedAisles.has(id)) app.collapsedAisles.delete(id);
+    else app.collapsedAisles.add(id);
+    renderGroceries();
+    $(`#groceries [data-g="aisle"][data-id="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
+  } else if (action === 'quick') {
+    addGrocery(id);
+  } else if (action === 'complete') {
+    completeGroceries();
+  } else if (action === 'history') {
+    openGroceryHistory();
+  } else if (action === 'trip-readd') {
+    readdTrip(id);
+  } else if (action === 'trip-delete') {
+    app.openTrip = null;
+    withUndo(t('groceries.tripDeleted'), () => { delete groceryState().history[id]; });
+  } else if (action === 'share') {
+    const text = groceriesAsText();
+    if (canShare()) {
+      try { await navigator.share({ title: t('groceries.shareTitle'), text }); } catch { /* cancelled */ }
+    } else {
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast(t('list.copied'));
+      } catch {
+        showToast(t('list.copyFailed'));
+      }
+    }
+  }
+}
+
+function setUpGroceries() {
+  app.collapsedAisles = new Set();
+  const view = $('#view-shopping');
+  view.addEventListener('click', handleGroceryAction);
+  view.addEventListener('change', handleGroceryAction);
+  view.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && event.target.matches('[data-g="qty"]')) {
+      event.preventDefault();
+      event.target.blur(); // commits through "change"
+    }
+  });
+  const history = $('#grocery-history');
+  history.addEventListener('click', (event) => {
+    if (event.target === history) history.close();
+    else handleGroceryAction(event);
+  });
+  history.addEventListener('toggle', (event) => {
+    const trip = event.target.closest?.('details.trip');
+    if (trip) app.openTrip = trip.open ? trip.dataset.trip : (app.openTrip === trip.dataset.trip ? null : app.openTrip);
+  }, true);
+  $('#grocery-history-close').addEventListener('click', () => history.close());
+
+  const input = $('#grocery-add-input');
+  input.addEventListener('input', renderGroceryResults);
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      const first = $('#grocery-add-results [data-product]');
+      if (first) { event.preventDefault(); chooseGrocery(first.dataset.product); }
+    } else if (event.key === 'Escape') {
+      input.value = '';
+      renderGroceryResults();
+    } else if (event.key === 'ArrowDown') {
+      const first = $('#grocery-add-results [data-product]');
+      if (first) { event.preventDefault(); first.focus(); }
+    }
+  });
+  $('#grocery-add-results').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-product]');
+    if (button) chooseGrocery(button.dataset.product);
+  });
+  $('#grocery-add-results').addEventListener('keydown', (event) => {
+    const buttons = [...document.querySelectorAll('#grocery-add-results [data-product]')];
+    const index = buttons.indexOf(event.target);
+    if (event.key === 'ArrowDown' && index < buttons.length - 1) { event.preventDefault(); buttons[index + 1].focus(); }
+    if (event.key === 'ArrowUp') { event.preventDefault(); (index > 0 ? buttons[index - 1] : input).focus(); }
+  });
+  document.addEventListener('click', (event) => {
+    if (!event.target.closest('#groceries .list-add')) $('#grocery-add-results').hidden = true;
+  });
+  document.addEventListener('visibilitychange', updateWakeLock);
+  loadProducts();
+}
+
+// ---------- top tabs: Yemek / Alışveriş ----------
+// Two views of the app. The chosen one is remembered on this device; the line under it slides across and
+// takes that view's colours (meal palette for Yemek, blue palette for Alışveriş).
+
+const TAB_KEY = 'ne-pisirsem:tab'; // the tab the app opens on (chosen with the pin next to a tab name)
+const TABS = ['meals', 'shopping'];
+
+function setUpTabs() {
+  const tabs = [...document.querySelectorAll('.app-tab')];
+  let saved = null;
+  try { saved = localStorage.getItem(TAB_KEY); } catch { /* ignore */ }
+  app.startTab = TABS.includes(saved) ? saved : 'meals';
+  // a home-screen shortcut (manifest "shortcuts") opens a given tab: ./?tab=shopping
+  const asked = new URLSearchParams(location.search).get('tab');
+  const first = TABS.includes(asked) ? asked : app.startTab;
+  // History: the page's own entry is the base (start tab); opening the other tab adds one entry marked
+  // "pushed", so Back returns to the start tab first. A reload keeps old entries, so the base is re-marked.
+  history.replaceState({ base: true }, '', asked ? location.pathname + location.hash : location.href);
+  app.tabPushed = false;
+  app.tabScroll = {};
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; // each tab keeps its own place
+  showTab(first, { animate: false, restoreScroll: false });
+  if (first !== app.startTab) {
+    history.pushState({ tab: first, pushed: true }, '');
+    app.tabPushed = true;
+  }
+  renderTabPins(app.startTab);
+  // Back (phone button, browser) from the other tab returns to the start tab before leaving the app
+  window.addEventListener('popstate', (event) => {
+    if (!event.state && location.hash) return; // an in-page link (#shopping) or a pairing link, not a tab step
+    app.tabPushed = Boolean(event.state?.pushed);
+    const name = app.tabPushed && TABS.includes(event.state.tab) ? event.state.tab : app.startTab;
+    if (name !== document.body.dataset.tab) showTab(name, { fromHistory: true });
+  });
+  tabs.forEach((tab) => tab.addEventListener('click', () => showTab(tab.dataset.tab, { focus: false })));
+  for (const pin of document.querySelectorAll('.tab-pin')) {
+    pin.addEventListener('click', () => {
+      const name = pin.dataset.pin;
+      try { localStorage.setItem(TAB_KEY, name); } catch { /* storage unavailable: lasts for this visit */ }
+      app.startTab = name;
+      renderTabPins(name);
+      showToast(t('tabs.pinned', { tab: t(`tabs.${name}`) }));
+    });
+  }
+  // Arrow keys move between tabs (WAI-ARIA tabs pattern)
+  $('.app-tabs').addEventListener('keydown', (event) => {
+    const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const index = TABS.indexOf(document.body.dataset.tab);
+    showTab(TABS[(index + step + TABS.length) % TABS.length], { focus: true });
+  });
+  window.addEventListener('resize', placeTabIndicator);
+  document.fonts?.ready.then(placeTabIndicator);
+  // desktop shortcuts: 1 / 2 switch tabs, "/" jumps to the add field of the open tab
+  document.addEventListener('keydown', (event) => {
+    if (event.ctrlKey || event.metaKey || event.altKey || event.defaultPrevented) return;
+    if (event.target.closest?.('input, textarea, select, [contenteditable="true"]') || document.querySelector('dialog[open]')) return;
+    if (event.key === '1' || event.key === '2') {
+      showTab(TABS[Number(event.key) - 1], { focus: true });
+    } else if (event.key === '/') {
+      const field = document.body.dataset.tab === 'shopping' ? $('#grocery-add-input') : $('#list-add-input');
+      if (!field) return;
+      event.preventDefault();
+      field.focus();
+      field.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  });
+}
+
+function showTab(name, { focus = false, animate = true, fromHistory = false, restoreScroll = true } = {}) {
+  const previous = document.body.dataset.tab;
+  if (previous && previous !== name) app.tabScroll[previous] = window.scrollY;
+  // history: the start tab is the base entry, the other tab sits one step above it
+  if (!fromHistory && previous && previous !== name && app.startTab) {
+    if (name === app.startTab && app.tabPushed) {
+      history.back(); // popstate shows the start tab
+      return;
+    }
+    if (name !== app.startTab) {
+      if (app.tabPushed) history.replaceState({ tab: name, pushed: true }, '');
+      else history.pushState({ tab: name, pushed: true }, '');
+      app.tabPushed = true;
+    }
+  }
+  document.body.dataset.tab = name;
+  for (const tab of document.querySelectorAll('.app-tab')) {
+    const selected = tab.dataset.tab === name;
+    tab.setAttribute('aria-selected', String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+    if (selected && focus) tab.focus();
+  }
+  $('#view-meals').hidden = name !== 'meals';
+  $('#view-shopping').hidden = name !== 'shopping';
+  const indicator = $('.app-tab-indicator');
+  indicator.classList.toggle('no-motion', !animate);
+  // browser chrome follows the page background of the tab and theme
+  const bg = getComputedStyle(document.body).backgroundColor;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg);
+  placeTabIndicator();
+  if (app.products && name === 'shopping') renderGroceries();
+  else if (app.products) updateWakeLock();
+  if (restoreScroll && previous !== name) window.scrollTo({ top: app.tabScroll?.[name] ?? 0, behavior: 'instant' });
+}
+
+/** The filled pin marks the tab the app opens on; the other pin offers to make its tab the start tab. */
+function renderTabPins(start) {
+  for (const pin of document.querySelectorAll('.tab-pin')) {
+    const isStart = pin.dataset.pin === start;
+    const tab = t(`tabs.${pin.dataset.pin}`);
+    pin.classList.toggle('is-start', isStart);
+    pin.disabled = isStart;
+    const label = t(isStart ? 'tabs.isStart' : 'tabs.makeStart', { tab });
+    pin.setAttribute('aria-label', label);
+    pin.title = label;
+  }
+}
+
+function placeTabIndicator() {
+  const tab = document.querySelector('.app-tab[aria-selected="true"]');
+  const indicator = $('.app-tab-indicator');
+  if (!tab || !indicator) return;
+  const left = tab.offsetLeft;
+  const right = tab.parentElement.clientWidth - (tab.offsetLeft + tab.offsetWidth);
+  // the leading edge sets off first and the trailing edge follows, so the line stretches and settles
+  const previous = parseFloat(indicator.style.left);
+  if (Number.isFinite(previous) && previous !== left) indicator.dataset.dir = left > previous ? 'right' : 'left';
+  indicator.style.left = `${left}px`;
+  indicator.style.right = `${right}px`;
+}
+
+// ---------- light / dark theme ----------
+// The page sets data-theme before first paint (inline script in index.html). Declaring both colour schemes
+// and offering a real dark theme also keeps browsers with a forced dark mode (Samsung Internet) from
+// repainting the page with their own filter.
+
+const THEME_KEY = 'ne-pisirsem:theme';
+const THEME_COLORS = { light: '#ffffff', dark: '#1b1315' };
+
+function setUpTheme() {
+  const button = $('#theme-toggle');
+  const apply = (theme, save) => {
+    document.documentElement.dataset.theme = theme;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLORS[theme]);
+    const dark = theme === 'dark';
+    button.setAttribute('aria-pressed', String(dark));
+    const label = t(dark ? 'theme.toLight' : 'theme.toDark');
+    button.setAttribute('aria-label', label);
+    button.title = label;
+    if (save) {
+      try { localStorage.setItem(THEME_KEY, theme); } catch { /* storage unavailable: this visit only */ }
+    }
+  };
+  apply(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light', false);
+  button.addEventListener('click', () => apply(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark', true));
+  // Until the switch is used, follow the system setting as it changes.
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', (event) => {
+    let saved = null;
+    try { saved = localStorage.getItem(THEME_KEY); } catch { /* ignore */ }
+    if (!saved) apply(event.matches ? 'dark' : 'light', false);
+  });
+  window.addEventListener('storage', (event) => {
+    if (event.key === THEME_KEY && (event.newValue === 'light' || event.newValue === 'dark')) apply(event.newValue, false);
+  });
+}
+
 // ---------- offline use and home-screen install ----------
 
 let installPrompt = null;
@@ -1396,10 +2209,28 @@ function applyRemoteState(shared) {
   }
   const next = { ...app.state, ...shared, settings: { ...app.state.settings, ...shared.settings } };
   if (JSON.stringify(next) === JSON.stringify(app.state)) return;
+  const before = app.products ? new Map(groceryRows().map((r) => [r.id, r.bought])) : null;
   app.state = next;
   saveState(app.state);
   app.previousMet = null;
+  if (before) noteRemoteGroceries(before);
   renderAll();
+}
+
+/** Rows the other device ticked or added flash briefly, with a short note while the list is on screen. */
+function noteRemoteGroceries(before) {
+  const ticked = [];
+  const added = [];
+  for (const row of groceryRows()) {
+    if (!before.has(row.id)) added.push(row.id);
+    else if (row.bought && !before.get(row.id)) ticked.push(row.id);
+  }
+  app.flashGroceries = new Set([...ticked, ...added]);
+  if (document.body.dataset.tab !== 'shopping' || !app.flashGroceries.size) return;
+  const parts = [];
+  if (ticked.length) parts.push(t('groceries.remoteTicked', { count: ticked.length }));
+  if (added.length) parts.push(t('groceries.remoteAdded', { count: added.length }));
+  showToast(t('groceries.remote', { what: parts.join(', ') }));
 }
 
 function hasOwnPlan() {
@@ -1590,6 +2421,7 @@ function renderAll() {
   renderStorageNotes();
   renderNutrition();
   renderShopping();
+  renderGroceries();
 }
 
 function changeWeek(offsetDays, { swiped = false } = {}) {
@@ -1801,11 +2633,16 @@ async function init() {
   app.catalog.ingredients.forEach((i) => app.ingredientsById.set(i.id, i));
   app.catalog.dishes.forEach((d) => app.nutritionByDish.set(d.id, dishNutrition(d, app.ingredientsById, app.catalog.servings)));
   app.showHints = countVisit() <= HINT_VISITS;
+  // without this a phone short on space may clear the site's storage; for a device without sync it is the only copy
+  navigator.storage?.persist?.().catch(() => {});
   bindEvents();
   renderAll();
   scrollToToday();
   setUpSync();
   setUpInstall();
+  setUpTheme();
+  setUpTabs();
+  setUpGroceries();
 }
 
 init();
