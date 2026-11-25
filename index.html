@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light">
   <title>Haftalık Yemek ve Alışveriş Listesi</title>
-  <meta name="description" content="Haftalık menü planlayıcı ve otomatik alışveriş listesi">
+  <meta name="description" content="Ücretsiz haftalık yemek planlayıcı ve market alışveriş listesi. Menünüzü seçin, malzemeler kişi sayısına göre listeye gelsin. Kayıt ve reklam yok.">
+  <link rel="canonical" href="https://cihan-senturk.github.io/weekly-meal-and-grocery-planner/">
   <meta name="theme-color" content="#ffffff">
   <meta name="color-scheme" content="light dark">
   <script>
@@ -25,15 +25,49 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Haftalık Yemek ve Alışveriş Listesi">
-  <meta property="og:description" content="Haftalık menü planlayıcı ve otomatik alışveriş listesi">
+  <meta property="og:description" content="Ücretsiz haftalık yemek planlayıcı ve market alışveriş listesi. Menünüzü seçin, malzemeler kişi sayısına göre listeye gelsin. Kayıt ve reklam yok.">
+  <meta property="og:locale" content="tr_TR">
   <meta property="og:url" content="https://cihan-senturk.github.io/weekly-meal-and-grocery-planner/">
   <meta property="og:image" content="https://cihan-senturk.github.io/weekly-meal-and-grocery-planner/icons/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Haftalık Yemek ve Alışveriş Listesi",
+    "alternateName": [
+      "Yemek & Alışveriş",
+      "Weekly Meal and Grocery Planner"
+    ],
+    "url": "https://cihan-senturk.github.io/weekly-meal-and-grocery-planner/",
+    "description": "Ücretsiz haftalık yemek planlayıcı ve market alışveriş listesi. Menünüzü seçin, malzemeler kişi sayısına göre listeye gelsin. Kayıt ve reklam yok.",
+    "inLanguage": "tr",
+    "applicationCategory": "LifestyleApplication",
+    "operatingSystem": "Web, Android, iOS",
+    "browserRequirements": "Requires JavaScript",
+    "isAccessibleForFree": true,
+    "image": "https://cihan-senturk.github.io/weekly-meal-and-grocery-planner/icons/og-image.png",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "TRY"
+    },
+    "featureList": [
+      "Haftalık menü planlama",
+      "Otomatik alışveriş listesi",
+      "1000'den fazla market ürünü",
+      "Cihazlar arası eşleme",
+      "Yazdırılabilir A4 haftalık menü",
+      "Yaklaşık kalori ve makrolar",
+      "İnternetsiz çalışma"
+    ]
+  }
+  </script>
   <link rel="preload" href="fonts/sofia-sans.woff" as="font" type="font/woff" crossorigin>
   <link rel="preload" href="fonts/sofia-sans-condensed.woff" as="font" type="font/woff" crossorigin>
-  <link rel="stylesheet" href="css/styles.css?v=1f28dc2c">
+  <link rel="stylesheet" href="css/styles.css?v=b9f8ee3f">
 </head>
 <body>
   <div class="backdrop" aria-hidden="true">
@@ -162,6 +196,12 @@
         <div id="groceries-body"></div>
       </div>
     </section>
+
+    <footer class="about">
+      <h2>Haftalık yemek planı ve market listesi, tek yerde</h2>
+      <p>Haftalık Yemek ve Alışveriş Listesi ücretsiz bir menü planlayıcıdır. Haftanın yemeklerini seçin; malzemeler kişi sayısına göre hesaplanıp reyonlara göre market listesine gelsin. Deterjandan kuruyemişe 1000'i aşkın üründen eklediğiniz her şey de aynı listede durur.</p>
+      <p>Tek yaşayanlar, aileler, danışanlarına örnek menü hazırlayan diyetisyenler ve yurt, kreş ya da şantiye gibi toplu yemek yapılan mutfaklar için. Kayıt ve reklam yok; menüyü A4 olarak yazdırabilir, telefonunuzla QR kodu okutarak eşleyebilirsiniz.</p>
+    </footer>
   </div>
 
   <dialog class="picker" id="picker" aria-labelledby="picker-title">

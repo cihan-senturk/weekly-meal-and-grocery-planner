@@ -675,6 +675,10 @@ body[data-tab="shopping"] .app-tab-indicator::after { opacity: 1; }
 .app-tab-indicator.no-motion, .app-tab-indicator.no-motion::before, .app-tab-indicator.no-motion::after { transition: none; }
 body[data-tab="shopping"] .list-jump { display: none !important; }
 .view-shopping { min-height: 60vh; padding: 14px 0 48px; }
+/* a few plain sentences at the very bottom: what the app is, for people and for search engines */
+.about { max-width: 640px; margin: 8px 0 32px; padding-top: 18px; border-top: 1px solid var(--rule); color: var(--muted); font-size: 14px; line-height: 1.55; }
+.about h2 { margin: 0 0 6px; font-size: 15px; font-weight: 700; color: var(--muted); font-family: inherit; letter-spacing: 0; }
+.about p { margin: 0 0 8px; }
 /* the shopping tab's list: the same receipt, in the blue palette, centred and not sticky */
 .groceries {
   --receipt: #1b365d; --receipt-ink: #f2fbfe; --receipt-muted: #a0e0ef;
@@ -785,7 +789,7 @@ body[data-tab="shopping"] .list-jump { display: none !important; }
   .app-tools { gap: 4px; }
 }
 @media (prefers-reduced-motion: reduce) { .app-tab-indicator, .app-tab-indicator[data-dir] { transition: none; } .app-tab-indicator::before, .app-tab-indicator::after { transition: opacity .2s; } }
-@media print { .app-tabs-row, .view-shopping { display: none !important; } }
+@media print { .app-tabs-row, .view-shopping, .about { display: none !important; } }
 
 /* ---------- narrow screens: compact day cards ----------
    Planned dishes are one row each (course in small type above the name, actions on the right);
