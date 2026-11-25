@@ -6,6 +6,11 @@
 
 ![Haftalık Yemek ve Alışveriş Listesi](icons/og-image.png)
 
+## İnsanlığa Notum / My Note to Humanity
+Bu projedeki her şeyi yapay zekaya yaptırdım. Hatta bu cümleler hariç bu ekrandaki yazıyı da yapay zeka yazdı. Bari iki satır kendim yazayım da o kadar da ayıp olmasın dedim. Bu konuda hassasiyetiniz varsa haberiniz de olmalı.
+
+I had AI do everything in this project. In fact, aside from these specific sentences, even the text you see on this screen was written by AI. I figured I should at least write a couple of lines myself, it only seemed right. If this is something you're sensitive about, I thought you ought to know.
+
 ## Türkçe
 
 **Ücretsiz haftalık yemek planlayıcı ve otomatik alışveriş listesi.** Kayıt yok, üyelik yok, reklam yok. Haftalık menünüzü seçin; market listesi kendiliğinden çıksın. Bilgisayarda planlayın, telefonla markete gidin.
@@ -57,3 +62,9 @@
 - **Service Worker ve Web App Manifest** ile internetsiz çalışma ve ana ekrana kurulum · offline use and home-screen install
 - **Canvas** ile yazdırılabilir A4 menü görseli · printable A4 menu image
 - Besin değerleri: **USDA FoodData Central** · nutrition data · Yazı tipi: **Sofia Sans** (SIL OFL)
+
+## Lisans / License
+
+Uygulamayı kullanmak ücretsizdir. Kaynak kodun tüm hakları saklıdır: izin olmadan kopyalanamaz, değiştirilemez ve dağıtılamaz. Ayrıntılar: [LICENSE](LICENSE).
+
+Using the app is free. The source code is all rights reserved: it may not be copied, modified or distributed without permission. See [LICENSE](LICENSE).

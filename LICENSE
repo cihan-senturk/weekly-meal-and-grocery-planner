@@ -1,0 +1,33 @@
+Copyright (c) 2026 Cihan Şentürk. Tüm hakları saklıdır. / All rights reserved.
+
+TÜRKÇE
+
+Uygulamayı https://cihan-senturk.github.io/weekly-meal-and-grocery-planner/ adresinde kullanmak
+ücretsizdir ve herkese açıktır.
+
+Bu depodaki kaynak kod, tasarım, metinler, görseller ve yemek kataloğu (bundan sonra "Yazılım")
+Cihan Şentürk'e aittir. Yazılımı görüntüleyebilirsiniz; ancak yazılı izin olmadan Yazılımın tamamını
+ya da bir kısmını kopyalayamaz, değiştiremez, yayınlayamaz, dağıtamaz, başka bir sitede ya da
+uygulamada barındıramaz, alt lisans veremez veya satamazsınız.
+
+Yazılım "olduğu gibi" sunulur; hiçbir garanti verilmez. Kalori ve besin değerleri yaklaşıktır ve
+tıbbi ya da diyet tavsiyesi değildir.
+
+Üçüncü taraf bileşenler kendi lisanslarına tabidir:
+- Sofia Sans yazı tipleri: SIL Open Font License 1.1 (fonts/README.md)
+- Besin değerleri: USDA FoodData Central (kamu malı / CC0)
+
+ENGLISH
+
+Using the app at https://cihan-senturk.github.io/weekly-meal-and-grocery-planner/ is free and open to everyone.
+
+The source code, design, text, images and dish catalog in this repository (the "Software") belong to
+Cihan Şentürk. You may view the Software, but you may not copy, modify, publish, distribute, host on another
+site or app, sublicense or sell the Software, in whole or in part, without written permission.
+
+The Software is provided "as is", without warranty of any kind. Calorie and nutrition values are approximate
+and are not medical or dietary advice.
+
+Third-party components keep their own licences:
+- Sofia Sans fonts: SIL Open Font License 1.1 (fonts/README.md)
+- Nutrition data: USDA FoodData Central (public domain / CC0)
