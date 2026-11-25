@@ -12068,7 +12068,7 @@
   {
    "id": "alabalik-tava-firin",
    "name": {
-    "tr": "Alabalık (tava/fırın)"
+    "tr": "Fırında alabalık"
    },
    "cuisine": "turkish",
    "course": "main",
@@ -17001,6 +17001,65 @@
      "ingredientId": "corn-starch",
      "quantity": 1.5,
      "optional": false
+    }
+   ]
+  },
+  {
+   "id": "alabalik-tava",
+   "name": {
+    "tr": "Alabalık tava"
+   },
+   "cuisine": "turkish",
+   "course": "main",
+   "category": "fish",
+   "frequency": 2,
+   "season": "all-year",
+   "months": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+   ],
+   "keepsDays": 1,
+   "ingredients": [
+    {
+     "ingredientId": "trout",
+     "quantity": 4,
+     "optional": false
+    },
+    {
+     "ingredientId": "cornmeal",
+     "quantity": 60,
+     "optional": false
+    },
+    {
+     "ingredientId": "flour",
+     "quantity": 4,
+     "optional": false
+    },
+    {
+     "ingredientId": "vegetable-oil",
+     "quantity": 50,
+     "optional": false,
+     "eatenShare": 0.3
+    },
+    {
+     "ingredientId": "butter",
+     "quantity": 7,
+     "optional": false
+    },
+    {
+     "ingredientId": "lemon",
+     "quantity": 1,
+     "optional": true
     }
    ]
   }
