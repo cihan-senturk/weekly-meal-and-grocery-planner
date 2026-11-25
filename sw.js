@@ -6,7 +6,7 @@
 // cache-first. Firestore's own traffic is left alone (it has its own offline cache).
 // When adding a file to the site, add it to APP_FILES too.
 
-const CACHE = 'ne-pisirsem';
+const CACHE = 'ne-pisirsem-2';
 const NETWORK_TIMEOUT_MS = 3000;
 const APP_FILES = [
   './',
@@ -62,9 +62,15 @@ async function cacheFirst(request) {
 async function networkFirst(request) {
   const cache = await caches.open(CACHE);
   const isPage = request.mode === 'navigate';
-  const network = fetch(request).then((response) => {
+  const url = new URL(request.url);
+  // GitHub Pages lets browsers reuse files for 10 minutes; right after a deploy that can pair a new page
+  // with an old stylesheet. "no-cache" asks the server each time (a 304 when nothing changed).
+  // (a navigation request cannot take options, so the page is asked for by its address instead)
+  const fresh = isPage ? fetch(request.url, { cache: 'no-cache', credentials: 'same-origin' }) : fetch(request, { cache: 'no-cache' });
+  const network = fresh.then((response) => {
     // Pages are stored without their query or hash, so a scanned #sync= link opens offline too.
-    if (response.ok) cache.put(isPage ? new Request(self.registration.scope) : request, response.clone());
+    // files are stored without their ?v= stamp, so the cache keeps one copy of each
+    if (response.ok) cache.put(isPage ? new Request(self.registration.scope) : url.origin + url.pathname, response.clone());
     return response;
   });
   network.catch(() => {}); // a late failure after the timeout is not an error
