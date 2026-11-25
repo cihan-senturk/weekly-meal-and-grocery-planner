@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Haftalık Yemek ve Alışveriş Listesi</title>
+  <meta name="description" content="Haftalık menü planlayıcı ve otomatik alışveriş listesi">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-title" content="Yemek Listesi">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Haftalık Yemek ve Alışveriş Listesi">
+  <meta property="og:description" content="Haftalık menü planlayıcı ve otomatik alışveriş listesi">
+  <meta property="og:url" content="https://cihan-senturk.github.io/weekly-meal-and-grocery-planner/">
+  <meta property="og:image" content="https://cihan-senturk.github.io/weekly-meal-and-grocery-planner/icons/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preload" href="fonts/sofia-sans.woff" as="font" type="font/woff" crossorigin>
+  <link rel="preload" href="fonts/sofia-sans-condensed.woff" as="font" type="font/woff" crossorigin>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true">
+    <span class="blob blob-1"></span><span class="blob blob-2"></span><span class="blob blob-3"></span>
+    <span class="blob blob-4"></span><span class="blob blob-5"></span>
+  </div>
+  <div class="page">
+    <header class="topbar">
+      <span class="brand"><span class="brand-full" data-i18n="app.title">Haftalık Yemek ve Alışveriş Listesi</span><span class="brand-short" data-i18n="app.shortTitle" aria-hidden="true">Yemek Listesi</span></span>
+
+      <nav class="week-nav" aria-label="Hafta">
+        <button class="icon-button" id="prev-week" type="button" data-i18n-label="week.previous">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <h1 class="week-title" id="week-title"></h1>
+        <button class="icon-button" id="next-week" type="button" data-i18n-label="week.next">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+        <button class="today-link" id="this-week" type="button" data-i18n="week.today"></button>
+      </nav>
+
+      <div class="toolbar">
+        <div class="stepper" role="group" data-i18n-label="week.servings">
+          <button class="icon-button" id="servings-down" type="button" data-i18n-label="week.servingsDown">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"/></svg>
+          </button>
+          <label class="servings-field">
+            <input id="servings" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" enterkeyhint="done" data-i18n-label="week.servings">
+            <span class="servings-unit" data-i18n="week.servingsUnit"></span>
+          </label>
+          <button class="icon-button" id="servings-up" type="button" data-i18n-label="week.servingsUp">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg>
+          </button>
+        </div>
+        <button class="sync-button" id="sync-button" type="button" data-status="off" hidden>
+          <span class="sync-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="3" y="5" width="12" height="9" rx="1.5"/><path d="M1.5 17.5h15"/><rect x="17" y="9" width="5.5" height="10" rx="1.2"/></svg>
+            <span class="sync-dot"></span>
+          </span>
+          <span class="sync-label" data-i18n="sync.labelOff"></span>
+        </button>
+        <button class="icon-button" id="export-button" type="button" data-i18n-label="export.open">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
+        </button>
+        <div class="menu-wrap">
+          <button class="icon-button" id="menu-button" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="menu" data-i18n-label="menu.more">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg>
+          </button>
+          <div class="menu" id="menu" role="menu" hidden>
+            <button type="button" role="menuitem" id="copy-previous" data-i18n="week.copyPrevious"></button>
+            <button type="button" role="menuitem" id="install-app" data-i18n="app.install" hidden></button>
+            <label class="menu-check" role="menuitemcheckbox">
+              <input type="checkbox" id="include-optional">
+              <span data-i18n="list.includeOptional"></span>
+            </label>
+            <button type="button" role="menuitem" id="clear-week" class="danger" data-i18n="week.clear"></button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="board" aria-labelledby="week-title">
+        <div class="board-card">
+        <div class="board-head" aria-hidden="true">
+          <span></span>
+          <span data-i18n="course.soup"></span>
+          <span data-i18n="course.main"></span>
+          <span data-i18n="course.side"></span>
+          <span data-i18n="course.salad"></span>
+          <span data-i18n="course.dessert"></span>
+        </div>
+        <div class="week" id="week">
+          <p class="loading" data-i18n="app.loading">Yükleniyor…</p>
+        </div>
+        </div>
+        <section class="tips" id="tips" aria-live="polite"></section>
+        <section class="storage-notes" id="storage-notes" aria-live="polite" hidden></section>
+        <section class="nutrition" id="nutrition" hidden></section>
+      </section>
+
+      <aside class="receipt" id="shopping" aria-labelledby="list-title">
+        <div id="shopping-head"></div>
+        <div class="list-add">
+          <label class="list-add-field">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg>
+            <span class="visually-hidden" data-i18n="list.addLabel"></span>
+            <input type="search" id="list-add-input" autocomplete="off" data-i18n-placeholder="list.addPlaceholder">
+          </label>
+          <ul class="list-add-results" id="list-add-results" hidden></ul>
+        </div>
+        <div id="shopping-body"></div>
+      </aside>
+    </main>
+  </div>
+
+  <dialog class="picker" id="picker" aria-labelledby="picker-title">
+    <div class="picker-inner">
+      <header class="picker-head">
+        <h2 id="picker-title"></h2>
+        <button class="icon-button" type="button" id="picker-close" data-i18n-label="picker.close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </header>
+      <label class="search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <span class="visually-hidden" data-i18n="picker.search"></span>
+        <input type="search" id="picker-search" autocomplete="off" data-i18n-placeholder="picker.search">
+      </label>
+      <div class="tabs" id="picker-courses" role="group"></div>
+      <div class="filters" id="picker-categories" role="group"></div>
+      <ul class="results" id="picker-results"></ul>
+    </div>
+  </dialog>
+
+  <dialog class="export" id="export" aria-labelledby="export-title">
+    <div class="export-inner">
+      <header class="picker-head">
+        <h2 id="export-title" data-i18n="export.title"></h2>
+        <button class="icon-button" type="button" id="export-close" data-i18n-label="picker.close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </header>
+      <div class="export-preview is-loading" id="export-preview">
+        <p class="export-error" data-i18n="export.error"></p>
+      </div>
+      <div class="export-actions">
+        <a class="button primary" id="export-download" data-i18n="export.download"></a>
+        <button class="button" type="button" id="export-share" data-i18n="export.share" hidden></button>
+        <button class="button" type="button" id="export-copy" data-i18n="export.copyText"></button>
+        <button class="button" type="button" id="export-print" data-i18n="week.print"></button>
+      </div>
+      <p class="export-hint" data-i18n="export.hint"></p>
+    </div>
+  </dialog>
+
+  <dialog class="sync" id="sync" aria-labelledby="sync-title">
+    <div class="sync-inner">
+      <header class="picker-head">
+        <h2 id="sync-title" data-i18n="sync.title"></h2>
+        <button class="icon-button" type="button" id="sync-close" data-i18n-label="picker.close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </header>
+      <div id="sync-body"></div>
+    </div>
+  </dialog>
+
+  <a class="list-jump" id="list-jump" href="#shopping" hidden></a>
+  <div class="toast" id="toast" role="status" aria-live="polite"><span id="toast-text"></span><button class="toast-action" id="toast-action" type="button" hidden></button></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
